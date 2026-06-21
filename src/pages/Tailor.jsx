@@ -24,10 +24,10 @@ export default function Tailor() {
       return
     }
     if (file.type === "application/pdf") {
-      setPdfError("PDF text extraction coming soon. Please paste your CV as text for now.")
+      setPdfError("PDF extraction coming soon. Please paste your CV as text for now.")
       return
     }
-    setPdfError("Please upload a PDF or plain text file.")
+    setPdfError("Please upload a .txt file or paste your CV as text.")
   }
 
   const generate = async () => {
@@ -213,7 +213,14 @@ export default function Tailor() {
               onChange={(e) => handleFile(e.target.files[0])}
             />
             {pdfError && (
-              <div style={{ fontSize: 11, color: T.danger }}>{pdfError}</div>
+              <div style={{
+                fontSize: 11, color: T.amber,
+                padding: "8px 12px", borderRadius: T.sm,
+                background: T.amberDim, border: `1px solid ${T.amber}30`,
+                lineHeight: 1.5,
+              }}>
+                ℹ {pdfError}
+              </div>
             )}
             <textarea
               value={cv}
