@@ -63,7 +63,7 @@ export default function Tailor() {
 
       navigate('/results')
     } catch (e) {
-      setError("Something went wrong. Please try again.")
+      setError(e.message || "Something went wrong. Please try again.")
     }
     setLoading(false)
   }
