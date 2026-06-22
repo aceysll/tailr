@@ -5,19 +5,19 @@ const CORS = {
 };
 
 function clean(text) {
-  return text
+  return String(text)
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
+    .replace(/[\u2018\u2019\u02BC]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014\u2015]/g, "-")
     .replace(/\u2022/g, "-")
-    .replace(/\u2013|\u2014/g, "-")
-    .replace(/\u201C|\u201D/g, '"')
-    .replace(/\u2018|\u2019/g, "'")
-    .replace(/\t/g, " ")
+    .replace(/\u2026/g, "...")
+    .replace(/\u00A0/g, " ")
     .trim()
 }
 
 function trimToWords(text, maxWords) {
-  const words = clean(text).split(/\s+/)
-  if (words.length <= maxWords) return words.join(" ")
+  const words = clean(text).split(/\s+/).filter(Boolean)
   return words.slice(0, maxWords).join(" ")
 }
 
@@ -41,7 +41,15 @@ export default async function handler(req, res) {
         model: "llama-3.3-70b-versatile",
         max_tokens: 4000,
         messages: [
-          { role: "system", content: "You are an expert CV writer. Return ONLY valid JSON with these exact keys: jobTitle, company, tailoredCv, coverLetter. Use only standard ASCII characters. No bullet symbols, no special quotes, no em dashes. Use regular hyphens for bullets. Keep actual job titles and dates. Rewrite experience bullets to match the job. No invented experience. No placeholder text in cover letter." },
+          {
+            role: "system",
+            content: `You are an expert CV writer. Respond using ONLY these exact XML tags:
+<jobTitle>job title here</jobTitle>
+<company>company name here</company>
+<tailoredCv>full rewritten CV here</tailoredCv>
+<coverLetter>full cover letter here</coverLetter>
+Rules: Keep actual job titles and dates. Rewrite bullets to match job. No invented experience. No placeholder text. Use plain hyphens not bullet symbols.`
+          },
           { role: "user", content: "CV:\n" + cleanCv + "\n\nJob Description:\n" + cleanJob },
         ],
       }),
@@ -50,16 +58,22 @@ export default async function handler(req, res) {
     if (groqData.error) return res.status(500).json({ error: "Groq: " + groqData.error.message })
     const raw = groqData.choices?.[0]?.message?.content?.trim()
     if (!raw) return res.status(500).json({ error: "No response from AI" })
-    const cleaned = raw
-      .replace(/```json|```/g, "")
-      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
-      .replace(/\u2022/g, "-")
-      .replace(/\u2013|\u2014/g, "-")
-      .replace(/\u201C|\u201D/g, '\\"')
-      .replace(/\u2018|\u2019/g, "'")
-      .trim()
-    const result = JSON.parse(cleaned)
-    return res.status(200).json(result)
+
+    const extract = (tag) => {
+      const match = raw.match(new RegExp(`<${tag}>([\s\S]*?)<\/${tag}>`))
+      return match ? clean(match[1].trim()) : ""
+    }
+
+    const jobTitle = extract("jobTitle")
+    const company = extract("company")
+    const tailoredCv = extract("tailoredCv")
+    const coverLetter = extract("coverLetter")
+
+    if (!tailoredCv || !coverLetter) {
+      return res.status(500).json({ error: "AI response was incomplete. Please try again." })
+    }
+
+    return res.status(200).json({ jobTitle, company, tailoredCv, coverLetter })
   } catch (e) {
     return res.status(500).json({ error: e.message })
   }
