@@ -10,6 +10,17 @@ function trimToWords(text, maxWords) {
   return words.slice(0, maxWords).join(" ") + "..."
 }
 
+function cleanText(text) {
+  return text
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
+    .replace(/\u2022/g, "-")
+    .replace(/\u2013|\u2014/g, "-")
+    .replace(/\u201C|\u201D/g, '"')
+    .replace(/\u2018|\u2019/g, "'")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*")
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -21,8 +32,8 @@ export default async function handler(req, res) {
   try {
     const { cv, job } = req.body
     if (!cv || !job) return res.status(400).json({ error: "Missing CV or job description" })
-    const trimmedCv = trimToWords(cv, 1200)
-    const trimmedJob = trimToWords(job, 800)
+    const cleanCv = cleanText(trimToWords(cv, 1200))
+    const cleanJob = cleanText(trimToWords(job, 800))
     const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_API_KEY}` },
@@ -31,7 +42,7 @@ export default async function handler(req, res) {
         max_tokens: 4000,
         messages: [
           { role: "system", content: `You are an expert CV writer. Return ONLY valid JSON: {"jobTitle":"","company":"","tailoredCv":"full rewritten CV as plain text","coverLetter":"full cover letter 3-4 paragraphs"}. Keep actual job titles and dates. Rewrite bullets to match the job. No invented experience. No placeholder text.` },
-          { role: "user", content: `CV:\n${trimmedCv}\n\nJob Description:\n${trimmedJob}` },
+          { role: "user", content: `CV:\n${cleanCv}\n\nJob Description:\n${cleanJob}` },
         ],
       }),
     })
