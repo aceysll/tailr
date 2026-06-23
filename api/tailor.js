@@ -1,9 +1,3 @@
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
-
 function clean(text) {
   return String(text)
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
@@ -29,11 +23,11 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end()
 
   const GROQ_API_KEY = process.env.GROQ_API_KEY
-  if (!GROQ_API_KEY) return res.status(500).end()
+  if (!GROQ_API_KEY) return res.status(500).send("NO_API_KEY")
 
   try {
     const { cv, job } = req.body
-    if (!cv || !job) return res.status(400).end()
+    if (!cv || !job) return res.status(400).send("MISSING_CV_OR_JOB")
 
     const cleanCv = trimToWords(cv, 1200)
     const cleanJob = trimToWords(job, 800)
@@ -66,10 +60,13 @@ Rules: Keep actual job titles and dates. Rewrite bullets to match job. No invent
     })
 
     const groqData = await groqRes.json()
-    if (groqData.error) return res.status(500).end()
+
+    if (groqData.error) {
+      return res.status(500).send("GROQ_ERROR: " + JSON.stringify(groqData.error))
+    }
 
     const raw = groqData.choices?.[0]?.message?.content?.trim()
-    if (!raw) return res.status(500).end()
+    if (!raw) return res.status(500).send("EMPTY_RESPONSE")
 
     const extract = (tag) => {
       const match = raw.match(new RegExp(`<${tag}>[\\s\\S]*?<\\/${tag}>`))
@@ -82,7 +79,7 @@ Rules: Keep actual job titles and dates. Rewrite bullets to match job. No invent
     const coverLetter = extract("coverLetter")
 
     if (!tailoredCv || !coverLetter) {
-      return res.status(500).send("AI response was incomplete. Please try again.")
+      return res.status(500).send("INCOMPLETE: tags found: jobTitle=" + !!jobTitle + " company=" + !!company + " cv=" + !!tailoredCv + " letter=" + !!coverLetter + " rawStart=" + raw.slice(0, 200))
     }
 
     const output = [jobTitle, company, tailoredCv, coverLetter].join("\n|||TAILR|||\n")
@@ -90,6 +87,6 @@ Rules: Keep actual job titles and dates. Rewrite bullets to match job. No invent
     return res.status(200).send(output)
 
   } catch (e) {
-    return res.status(500).send(e.message || "Server error")
+    return res.status(500).send("EXCEPTION: " + e.message)
   }
 }
