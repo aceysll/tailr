@@ -26,8 +26,8 @@ export default function Tailor() {
         body: JSON.stringify({ cv: cv.trim(), job: job.trim() }),
       })
       const text = await res.text()
-      if (!res.ok) throw new Error("Something went wrong. Please try again.")
-      if (!text.includes("|||TAILR|||")) throw new Error("Incomplete response from AI. Please try again.")
+      if (!res.ok) throw new Error("API error: " + text)
+      if (!text.includes("|||TAILR|||")) throw new Error("Raw response: " + text.slice(0, 500))
       incrementUsage()
       sessionStorage.setItem("tailr_result", text)
       navigate("/results")
@@ -92,7 +92,7 @@ export default function Tailor() {
         <h1 style={{ fontFamily: T.serif, fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 6 }}>Tailor your application</h1>
         <p style={{ fontSize: 13, color: T.textDim, marginBottom: 28 }}>Add your CV and the job you are applying for. We will do the rest.</p>
 
-        {error && <div style={{ padding: "12px 16px", borderRadius: T.md, marginBottom: 20, background: "#1a0806", border: `1px solid ${T.danger}40`, fontSize: 13, color: T.danger }}>{error}</div>}
+        {error && <div style={{ padding: "12px 16px", borderRadius: T.md, marginBottom: 20, background: "#1a0806", border: `1px solid ${T.danger}40`, fontSize: 11, color: T.danger, wordBreak: "break-all", whiteSpace: "pre-wrap" }}>{error}</div>}
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
