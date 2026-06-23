@@ -1,11 +1,9 @@
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*")
-  if (req.method !== "POST") return res.status(405).end()
+  res.setHeader("Content-Type", "text/plain")
 
   const GROQ_API_KEY = process.env.GROQ_API_KEY
   if (!GROQ_API_KEY) return res.status(500).send("No API key")
-
-  const { cv, job } = req.body
 
   const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -19,17 +17,14 @@ export default async function handler(req, res) {
       messages: [
         {
           role: "system",
-          content: `You are an expert CV writer. You MUST respond using ONLY these exact XML tags with no other text before or after:
-<jobTitle>job title here</jobTitle>
-<company>company name here</company>
-<tailoredCv>full rewritten CV here</tailoredCv>
-<coverLetter>full cover letter here</coverLetter>`,
+          content: `Respond using ONLY these XML tags:\n<jobTitle>title</jobTitle>\n<company>company</company>\n<tailoredCv>cv here</tailoredCv>\n<coverLetter>letter here</coverLetter>`,
         },
-        { role: "user", content: "CV:\n" + cv + "\n\nJob Description:\n" + job },
+        { role: "user", content: "CV:\nSoftware developer, 2 years experience\n\nJob Description:\nJunior developer at Acme Corp" },
       ],
     }),
   })
 
   const data = await groqRes.json()
-  return res.status(200).json(data)
+  const raw = data.choices?.[0]?.message?.content || JSON.stringify(data)
+  return res.status(200).send(raw)
 }
